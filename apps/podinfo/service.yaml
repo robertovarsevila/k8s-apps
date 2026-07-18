@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: podinfo
+  namespace: podinfo
+  labels:
+    app: podinfo
+spec:
+  # ClusterIP = solo accesible desde dentro del cluster.
+  # Para entrar desde fuera esta el Ingress (ver ingress.yaml).
+  type: ClusterIP
+  selector:
+    app: podinfo          # busca los pods con esta etiqueta
+  ports:
+    - name: http
+      port: 80            # puerto del Service
+      targetPort: http    # puerto del contenedor (9898)
+      protocol: TCP

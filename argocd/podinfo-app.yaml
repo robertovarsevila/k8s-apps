@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: podinfo
+  namespace: argocd          # las Applications SIEMPRE viven en el ns de Argo
+spec:
+  project: default
+
+  # ORIGEN: de donde saca Argo los manifiestos.
+  source:
+    # ⚠️ AJUSTA ESTA URL a tu repo real antes de aplicar este fichero.
+    repoURL: https://github.com/robertovarsevila/k8s-apps.git
+    targetRevision: main             # rama a vigilar
+    path: apps/podinfo               # carpeta dentro del repo
+
+  # DESTINO: donde lo despliega.
+  destination:
+    server: https://kubernetes.default.svc   # este mismo cluster
+    namespace: podinfo
+
+  syncPolicy:
+    automated:
+      # Si alguien toca el cluster a mano, Argo lo revierte al estado del repo.
+      # Ponlo en false al principio si prefieres ver las diferencias sin que
+      # Argo actue solo.
+      selfHeal: true
+      # Borra del cluster lo que borres del repo.
+      prune: true
+    syncOptions:
+      # Crea el namespace "podinfo" si no existe.
+      - CreateNamespace=true

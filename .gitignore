@@ -1,0 +1,15 @@
+# Nada de secretos en este repo (es publico)
+.env
+*.key
+*.pem
+secrets.yaml
+
+# kubeconfig: contiene credenciales del cluster
+kubeconfig
+*.kubeconfig
+config
+
+# Temporales
+*.tmp
+*.bak
+*~

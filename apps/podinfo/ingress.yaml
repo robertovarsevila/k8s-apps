@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: podinfo
+  namespace: podinfo
+spec:
+  # Traefik viene incluido con k3s, no hay que instalar nada.
+  ingressClassName: traefik
+  rules:
+    # OJO: enrutado por Host, no por IP. El navegador tiene que pedir
+    # explicitamente "podinfo.local" o Traefik devolvera 404.
+    # Ver README.md -> "Como entrar a podinfo".
+    - host: podinfo.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: podinfo
+                port:
+                  number: 80
