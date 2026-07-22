@@ -8,7 +8,7 @@ metadata:
 spec:
   # Argo CD compara este numero con la realidad del cluster.
   # Cambia el 2 por un 3, haz commit, y veras a Argo reaccionar.
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       app: podinfo
