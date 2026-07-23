@@ -129,3 +129,51 @@ que es root-only. Sin esto falla con *permission denied*:
 ```bash
 export KUBECONFIG=$HOME/.kube/config
 ```
+
+---
+
+## `metrics-api`
+
+Segundo microservicio del cluster (el primero con lógica propia, no una demo). Es una
+API Spring Boot que consulta InfluxDB y resume CPU/temperatura/RAM de la Pi en
+`GET /api/metrics/resumen`. Código fuente en
+`~/Documents/projects/_developing/microservicios/metrics-api/` (repo separado — este
+repo `k8s-apps` es solo manifiestos).
+
+Sin imagen en ningún registry todavía: se construye y se importa a mano en la Pi.
+
+```bash
+cd ~/Documents/projects/_developing/microservicios/metrics-api
+docker build -t metrics-api:0.1.0 .
+docker save metrics-api:0.1.0 | sudo k3s ctr images import -
+```
+
+### El único paso que nunca va al repo: el `Secret`
+
+`configmap.yaml` lleva `INFLUX_URL`/`INFLUX_ORG`/`INFLUX_BUCKET` (no sensibles). El
+token sí lo es, y este repo es público, así que el `Secret` se crea a mano una vez,
+directamente en el cluster (nunca como YAML en git):
+
+```bash
+export KUBECONFIG=$HOME/.kube/config
+kubectl create secret generic metrics-api-influx \
+  --from-literal=INFLUX_TOKEN=<el-token-de-infra/docker/metricas/monitoring/.env> \
+  -n metrics-api
+```
+
+Si el namespace `metrics-api` aún no existe (primer despliegue), créalo antes o espera
+a que Argo lo cree (`CreateNamespace=true`) y repite el `kubectl create secret`.
+
+### Dar de alta la Application (solo la primera vez)
+
+```bash
+kubectl apply -f argocd/metrics-api-app.yaml
+```
+
+### Probar
+
+```bash
+kubectl get application metrics-api -n argocd     # Synced / Healthy
+kubectl port-forward -n metrics-api svc/metrics-api 8090:80 --address 0.0.0.0
+curl http://192.168.1.12:8090/api/metrics/resumen
+```

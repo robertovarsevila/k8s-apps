@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: metrics-api-config
+  namespace: metrics-api
+data:
+  # IP de la Pi, no "influxdb": los pods de k3s no estan en la red de Docker
+  # (monitoring-net), asi que el nombre de contenedor no resuelve. Se llega
+  # a InfluxDB por el puerto publicado en el host.
+  INFLUX_URL: "http://192.168.1.12:8086"
+  INFLUX_ORG: "mi-org"
+  INFLUX_BUCKET: "metricas"

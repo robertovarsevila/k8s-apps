@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: metrics-api
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/robertovarsevila/k8s-apps.git
+    targetRevision: main
+    path: apps/metrics-api
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: metrics-api
+
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
+    syncOptions:
+      - CreateNamespace=true
