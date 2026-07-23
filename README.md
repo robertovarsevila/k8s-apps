@@ -174,6 +174,20 @@ kubectl apply -f argocd/metrics-api-app.yaml
 
 ```bash
 kubectl get application metrics-api -n argocd     # Synced / Healthy
+```
+
+**Vía Ingress** (mismo NodePort 32602 que `podinfo`, enrutado por host):
+
+```bash
+curl -H "Host: metrics-api.local" http://192.168.1.12:32602/api/metrics/resumen
+```
+
+O añadiendo `192.168.1.12 metrics-api.local` al `hosts` del portátil y abriendo
+`http://metrics-api.local:32602/api/metrics/resumen` en el navegador.
+
+**Alternativa sin Ingress** (port-forward, ocupa la terminal):
+
+```bash
 kubectl port-forward -n metrics-api svc/metrics-api 8090:80 --address 0.0.0.0
 curl http://192.168.1.12:8090/api/metrics/resumen
 ```
