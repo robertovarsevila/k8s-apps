@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingest-service
+  namespace: regatas
+spec:
+  ingressClassName: traefik
+  rules:
+    # Enrutado por Host, igual que podinfo/metrics-api: hay que pedir
+    # "ingest.regata.local" explicitamente o Traefik devuelve 404. Se entra
+    # por el NodePort 32602.
+    - host: ingest.regata.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ingest-service
+                port:
+                  number: 80

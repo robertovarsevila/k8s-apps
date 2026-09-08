@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingest-service-config
+  namespace: regatas
+data:
+  # IP de la Pi, no "localhost" ni "influxdb": los pods de k3s no estan en la
+  # red de Docker, asi que se llega por el puerto publicado en el host. Esta es
+  # la InfluxDB PROPIA de regata-platform (puerto 8088, ADR 0006 del repo de
+  # codigo) - no la de infra/docker/metricas (puerto 8086, la usa metrics-api).
+  INFLUXDB_URL: "http://192.168.1.12:8088"
+  INFLUXDB_ORG: "regata"
+  INFLUXDB_BUCKET: "regatas"

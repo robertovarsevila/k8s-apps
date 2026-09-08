@@ -191,3 +191,67 @@ O añadiendo `192.168.1.12 metrics-api.local` al `hosts` del portátil y abriend
 kubectl port-forward -n metrics-api svc/metrics-api 8090:80 --address 0.0.0.0
 curl http://192.168.1.12:8090/api/metrics/resumen
 ```
+
+---
+
+## `ingest-service` (regata-platform)
+
+Primer microservicio de `regata-platform`: API FastAPI que genera una regata
+simulada y escribe su telemetría en la InfluxDB propia del proyecto (bucket
+`regatas`, puerto 8088 — distinta de la de `metrics-api`). Código fuente en
+`~/Documents/projects/regata-platform/` (repo separado, privado). Manifiestos
+aquí bajo `apps/regata/ingest-service/`, namespace **`regatas`** — servicios
+futuros del mismo proyecto (`session-service`, `analysis-service`) compartirán
+namespace y vivirán junto a este en `apps/regata/<servicio>/`.
+
+Sin imagen en ningún registry todavía. Ojo: a diferencia de `metrics-api`, el
+contexto de build es la **raíz** del monorepo `regata-platform`, no la carpeta
+del servicio — depende de paquetes locales hermanos (`libs/telemetry-schema`,
+`tools/simulator`; ver ADR 0007 de ese repo):
+
+```bash
+cd ~/Documents/projects/regata-platform
+docker build -f services/ingest-service/Dockerfile -t ingest-service:0.1.0 .
+docker save ingest-service:0.1.0 | sudo k3s ctr images import -
+```
+
+### El único paso que nunca va al repo: el `Secret`
+
+`configmap.yaml` lleva `INFLUXDB_URL`/`INFLUXDB_ORG`/`INFLUXDB_BUCKET` (no
+sensibles). El token sí lo es:
+
+```bash
+export KUBECONFIG=$HOME/.kube/config
+kubectl create secret generic regata-ingest-service-influx \
+  --from-literal=INFLUXDB_TOKEN=<el-token-de-regata-platform/.env> \
+  -n regatas
+```
+
+Si el namespace `regatas` aún no existe, créalo antes o espera a que Argo lo
+cree (`CreateNamespace=true`) y repite el `kubectl create secret`.
+
+### Dar de alta la Application (solo la primera vez)
+
+```bash
+kubectl apply -f argocd/regata-ingest-service-app.yaml
+```
+
+### Probar
+
+```bash
+kubectl get application regata-ingest-service -n argocd     # Synced / Healthy
+```
+
+**Vía Ingress** (mismo NodePort 32602, enrutado por host):
+
+```bash
+curl -X POST -H "Host: ingest.regata.local" -H "Content-Type: application/json" \
+  http://192.168.1.12:32602/ingest/simulated -d '{}'
+```
+
+**Alternativa sin Ingress** (port-forward, ocupa la terminal):
+
+```bash
+kubectl port-forward -n regatas svc/ingest-service 8091:80 --address 0.0.0.0
+curl -X POST http://192.168.1.12:8091/ingest/simulated -H "Content-Type: application/json" -d '{}'
+```

@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingest-service
+  namespace: regatas
+  labels:
+    app: ingest-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ingest-service
+  template:
+    metadata:
+      labels:
+        app: ingest-service
+    spec:
+      containers:
+        - name: ingest-service
+          # Imagen construida e importada a mano en esta Pi (docker build +
+          # k3s ctr images import), no hay registry todavia. Contexto de build
+          # = raiz del monorepo regata-platform (ver ADR 0007 de ese repo).
+          image: docker.io/library/ingest-service:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: ingest-service-config
+          env:
+            # El token SI es sensible: nunca en el repo (es publico). El
+            # Secret se crea a mano una vez, ver README.md de este repo.
+            - name: INFLUXDB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: regata-ingest-service-influx
+                  key: INFLUXDB_TOKEN
+          # Python/FastAPI: bastante mas ligero que la JVM de metrics-api.
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
