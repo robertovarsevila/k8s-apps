@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: session-service
+  namespace: regatas
+  labels:
+    app: session-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: session-service
+  template:
+    metadata:
+      labels:
+        app: session-service
+    spec:
+      containers:
+        - name: session-service
+          # Imagen construida e importada a mano en esta Pi (docker build +
+          # k3s ctr images import), no hay registry todavía. Contexto de
+          # build = esta misma carpeta del servicio, no la raíz del monorepo
+          # (a diferencia de ingest-service, ver Dockerfile de este servicio).
+          image: docker.io/library/session-service:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8090
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: session-service-config
+          env:
+            # Mismo Secret que usa la propia Postgres (postgres.yaml) para
+            # POSTGRES_USER/POSTGRES_PASSWORD -- una sola fuente de verdad
+            # para las credenciales, se crea a mano una vez (ADR 0005).
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: session-service-postgres
+                  key: POSTGRES_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: session-service-postgres
+                  key: POSTGRES_PASSWORD
+          # Una JVM necesita bastante más que el binario Go de podinfo (igual
+          # que metrics-api).
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          # initialDelaySeconds más alto que en ingest-service (Python): la
+          # JVM + Flyway + Hibernate tardan más en arrancar en frío en la Pi.
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10

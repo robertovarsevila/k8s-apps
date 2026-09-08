@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: session-service
+  namespace: regatas
+spec:
+  ingressClassName: traefik
+  rules:
+    # Enrutado por Host, igual que ingest-service/podinfo/metrics-api: hay que
+    # pedir "session.regata.local" explícitamente o Traefik devuelve 404. Se
+    # entra por el NodePort 32602.
+    - host: session.regata.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: session-service
+                port:
+                  number: 80
