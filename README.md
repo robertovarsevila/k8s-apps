@@ -406,3 +406,69 @@ curl -X POST -H "Host: analysis.regata.local" \
 kubectl port-forward -n regatas svc/analysis-service 8093:80 --address 0.0.0.0
 curl -X POST http://192.168.1.12:8093/analyze/<session_id>
 ```
+
+---
+
+## `api-gateway` (regata-platform)
+
+Cuarto microservicio de `regata-platform`, y el primero que solo **agrega**:
+combina metadatos de `session-service`, telemetría de InfluxDB y análisis de
+`analysis-service` (disparándolo bajo demanda si una sesión aún no tiene
+maniobras, ADR 0003) en una sola respuesta para el frontend
+(`GET /sessions`, `GET /sessions/{id}`). Código fuente en
+`~/Documents/projects/regata-platform/` (repo separado, privado). Manifiestos
+aquí bajo `apps/regata/api-gateway/`, mismo namespace `regatas`.
+
+Igual que `session-service` (y a diferencia de `ingest-service`/
+`analysis-service`), el contexto de build es la **propia carpeta** del
+servicio: proyecto Maven autocontenido, sin paquetes hermanos del monorepo
+(ADR 0007 de ese repo no aplica):
+
+```bash
+cd ~/Documents/projects/regata-platform/services/api-gateway
+docker build -t api-gateway:0.1.0 .
+docker save api-gateway:0.1.0 | sudo k3s ctr images import -
+```
+
+### El único paso que nunca va al repo: el `Secret`
+
+`configmap.yaml` lleva `SESSION_SERVICE_URL`/`ANALYSIS_SERVICE_URL`/
+`INFLUXDB_URL`/`INFLUXDB_ORG`/`INFLUXDB_BUCKET` (no sensibles). El token de
+InfluxDB sí lo es — mismo valor que el de `ingest-service`/`analysis-service`,
+pero en su **propio** `Secret` (cada `Application` de este repo lleva el suyo):
+
+```bash
+export KUBECONFIG=$HOME/.kube/config
+kubectl create secret generic regata-api-gateway-influx \
+  --from-literal=INFLUXDB_TOKEN=<el-token-de-regata-platform/.env> \
+  -n regatas
+```
+
+Si el namespace `regatas` aún no existe, créalo antes o espera a que Argo lo
+cree (`CreateNamespace=true`) y repite el `kubectl create secret`.
+
+### Dar de alta la Application (solo la primera vez)
+
+```bash
+kubectl apply -f argocd/regata-api-gateway-app.yaml
+```
+
+### Probar
+
+```bash
+kubectl get application regata-api-gateway -n argocd     # Synced / Healthy
+```
+
+**Vía Ingress** (mismo NodePort 32602, enrutado por host):
+
+```bash
+curl -H "Host: gateway.regata.local" http://192.168.1.12:32602/sessions
+curl -H "Host: gateway.regata.local" http://192.168.1.12:32602/sessions/<session_id>
+```
+
+**Alternativa sin Ingress** (port-forward, ocupa la terminal):
+
+```bash
+kubectl port-forward -n regatas svc/api-gateway 8094:80 --address 0.0.0.0
+curl http://192.168.1.12:8094/sessions
+```
