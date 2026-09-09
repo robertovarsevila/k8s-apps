@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: analysis-service-config
+  namespace: regatas
+data:
+  # Misma InfluxDB propia de regata-platform que escribe ingest-service (solo
+  # lectura aqui) - IP de la Pi, no "localhost": los pods de k3s no estan en
+  # la red de Docker (ver configmap.yaml de ingest-service).
+  INFLUXDB_URL: "http://192.168.1.12:8088"
+  INFLUXDB_ORG: "regata"
+  INFLUXDB_BUCKET: "regatas"
+  # session-service SI esta en el cluster (mismo namespace regatas): se llega
+  # por el Service interno (ADR 0003 del repo de codigo, regata-platform).
+  SESSION_SERVICE_URL: "http://session-service.regatas.svc.cluster.local"

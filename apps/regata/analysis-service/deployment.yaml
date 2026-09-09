@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analysis-service
+  namespace: regatas
+  labels:
+    app: analysis-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: analysis-service
+  template:
+    metadata:
+      labels:
+        app: analysis-service
+    spec:
+      containers:
+        - name: analysis-service
+          # Imagen construida e importada a mano en esta Pi (docker build +
+          # k3s ctr images import), no hay registry todavia. Contexto de build
+          # = raiz del monorepo regata-platform (ver ADR 0007 de ese repo).
+          image: docker.io/library/analysis-service:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: analysis-service-config
+          env:
+            # El token SI es sensible: nunca en el repo (es publico). Secret
+            # propio de este servicio (mismo token que el de ingest-service,
+            # pero cada Application con el suyo, ver README.md de este repo).
+            - name: INFLUXDB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: regata-analysis-service-influx
+                  key: INFLUXDB_TOKEN
+          # Python/FastAPI: igual de ligero que ingest-service.
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10

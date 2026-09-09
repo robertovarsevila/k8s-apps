@@ -200,9 +200,9 @@ Primer microservicio de `regata-platform`: API FastAPI que genera una regata
 simulada y escribe su telemetría en la InfluxDB propia del proyecto (bucket
 `regatas`, puerto 8088 — distinta de la de `metrics-api`). Código fuente en
 `~/Documents/projects/regata-platform/` (repo separado, privado). Manifiestos
-aquí bajo `apps/regata/ingest-service/`, namespace **`regatas`** — servicios
-futuros del mismo proyecto (`session-service`, `analysis-service`) compartirán
-namespace y vivirán junto a este en `apps/regata/<servicio>/`.
+aquí bajo `apps/regata/ingest-service/`, namespace **`regatas`** — los demás
+servicios del mismo proyecto (`session-service`, `analysis-service`) comparten
+namespace y viven junto a este en `apps/regata/<servicio>/`.
 
 Sin imagen en ningún registry todavía. Ojo: a diferencia de `metrics-api`, el
 contexto de build es la **raíz** del monorepo `regata-platform`, no la carpeta
@@ -337,4 +337,72 @@ curl -X POST -H "Host: session.regata.local" -H "Content-Type: application/json"
 ```bash
 kubectl port-forward -n regatas svc/session-service 8092:80 --address 0.0.0.0
 curl http://192.168.1.12:8092/health
+```
+
+---
+
+## `analysis-service` (regata-platform)
+
+Tercer microservicio de `regata-platform`: API FastAPI que, para una sesión
+dada, lee su telemetría de la InfluxDB propia del proyecto, detecta viradas y
+trasluchadas (y su pérdida de VMG asociada) y persiste el resultado en
+`session-service` (`POST /sessions/{sessionId}/maneuvers`). Se dispara **bajo
+demanda** con un `curl` — todavía no hay `api-gateway` (Fase 4) que lo invoque
+solo. Código fuente en `~/Documents/projects/regata-platform/` (repo
+separado, privado). Manifiestos aquí bajo `apps/regata/analysis-service/`,
+mismo namespace `regatas`.
+
+Igual que `ingest-service` (y a diferencia de `session-service`), el contexto
+de build es la **raíz** del monorepo `regata-platform`: depende de un paquete
+local hermano (`libs/telemetry-schema`; ver ADR 0007 de ese repo):
+
+```bash
+cd ~/Documents/projects/regata-platform
+docker build -f services/analysis-service/Dockerfile -t analysis-service:0.1.0 .
+docker save analysis-service:0.1.0 | sudo k3s ctr images import -
+```
+
+### El único paso que nunca va al repo: el `Secret`
+
+`configmap.yaml` lleva `INFLUXDB_URL`/`INFLUXDB_ORG`/`INFLUXDB_BUCKET`/
+`SESSION_SERVICE_URL` (no sensibles). El token de InfluxDB sí lo es — mismo
+valor que el de `ingest-service`, pero en su **propio** `Secret`: cada
+`Application` de este repo lleva el suyo, para que sus manifiestos no
+dependan de los de otra:
+
+```bash
+export KUBECONFIG=$HOME/.kube/config
+kubectl create secret generic regata-analysis-service-influx \
+  --from-literal=INFLUXDB_TOKEN=<el-token-de-regata-platform/.env> \
+  -n regatas
+```
+
+Si el namespace `regatas` aún no existe, créalo antes o espera a que Argo lo
+cree (`CreateNamespace=true`) y repite el `kubectl create secret`.
+
+### Dar de alta la Application (solo la primera vez)
+
+```bash
+kubectl apply -f argocd/regata-analysis-service-app.yaml
+```
+
+### Probar
+
+```bash
+kubectl get application regata-analysis-service -n argocd     # Synced / Healthy
+```
+
+**Vía Ingress** (mismo NodePort 32602, enrutado por host) — necesita un
+`session_id` ya ingerido (ver `ingest-service` más arriba):
+
+```bash
+curl -X POST -H "Host: analysis.regata.local" \
+  http://192.168.1.12:32602/analyze/<session_id>
+```
+
+**Alternativa sin Ingress** (port-forward, ocupa la terminal):
+
+```bash
+kubectl port-forward -n regatas svc/analysis-service 8093:80 --address 0.0.0.0
+curl -X POST http://192.168.1.12:8093/analyze/<session_id>
 ```
