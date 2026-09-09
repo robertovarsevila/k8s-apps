@@ -1,0 +1,41 @@
+# Ingress de la propia UI de Argo CD.
+#
+# OJO: a diferencia del resto de ficheros de este repo, este NO lo sincroniza
+# Argo (la instalación de Argo CD en sí vive fuera del flujo GitOps: se
+# instaló con el manifest oficial upstream, aplicado a mano una vez, ver
+# infra/kube_3ks/comandos.md del repo privado). Este fichero se versiona
+# aquí solo para no perder el rastro, pero se aplica a mano:
+#
+#   kubectl apply -f argocd/argocd-server-ingress.yaml
+#
+# Requiere que argocd-server corra con el flag --insecure (parcheado a mano
+# también, mismo motivo): por defecto sirve su propio TLS en el puerto 8080,
+# y el resto de Ingress de este cluster son HTTP plano (Traefik, NodePort
+# 32602, sin TLS en ningún sitio). Sin --insecure, Traefik no puede hablar
+# con él en plano.
+#
+#   kubectl patch deployment argocd-server -n argocd --type=json \
+#     -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--insecure"}]'
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-server
+  namespace: argocd
+spec:
+  ingressClassName: traefik
+  rules:
+    # Enrutado por Host, igual que el resto: hay que pedir
+    # "argocd.regata.local" explicitamente o Traefik devuelve 404. Se entra
+    # por el NodePort 32602. La contraseña de admin sigue haciendo falta
+    # para entrar; esto solo expone la pantalla de login a la LAN/Tailscale
+    # en vez de solo a quien tiene kubectl contra el cluster.
+    - host: argocd.regata.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  name: http

@@ -132,6 +132,37 @@ export KUBECONFIG=$HOME/.kube/config
 
 ---
 
+## Acceso a la UI de Argo CD
+
+`argocd-server` tiene Ingress (`argocd.regata.local`, mismo NodePort 32602
+que el resto). Añade `192.168.1.12 argocd.regata.local` (o `100.107.90.9`
+por Tailscale) a tu `hosts` y abre:
+
+```
+http://argocd.regata.local:32602
+```
+
+Usuario `admin`, contraseña:
+
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+```
+
+⚠️ **Este Ingress vive fuera del flujo GitOps de este repo**: la instalación
+de Argo CD en sí no está gestionada por ninguna `Application` (no puede
+gestionarse a sí misma con esta configuración tan simple) — se instaló a
+mano con el manifest oficial upstream (`infra/kube_3ks/comandos.md`, repo
+privado). El Ingress (`argocd/argocd-server-ingress.yaml`) y el flag
+`--insecure` que necesita `argocd-server` para servir HTTP plano detrás de
+Traefik están versionados aquí solo para no perder el rastro, pero se
+aplican **a mano** — ver los comentarios de ese fichero.
+
+**Alternativa sin Ingress** (por si el DNS/`hosts` falla, o prefieres no
+exponer el login a toda la LAN): `~/scripts/argocd-ui.sh` en la Pi levanta
+un `kubectl port-forward` a demanda.
+
+---
+
 ## `metrics-api`
 
 Segundo microservicio del cluster (el primero con lógica propia, no una demo). Es una
