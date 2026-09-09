@@ -11,3 +11,7 @@ data:
   INFLUXDB_URL: "http://192.168.1.12:8088"
   INFLUXDB_ORG: "regata"
   INFLUXDB_BUCKET: "regatas"
+  # session-service SI esta en el cluster (mismo namespace regatas), a
+  # diferencia de InfluxDB de arriba: se llega por el Service interno, no por
+  # la IP de la Pi (ADR 0003 del repo de codigo, regata-platform).
+  SESSION_SERVICE_URL: "http://session-service.regatas.svc.cluster.local"
