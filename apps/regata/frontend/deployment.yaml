@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: regatas
+  labels:
+    app: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          # Imagen construida e importada a mano en esta Pi (docker build +
+          # k3s ctr images import), no hay registry todavia. Build estatico
+          # (React + Vite) servido por Nginx; VITE_API_BASE_URL se hornea en
+          # el build apuntando a "http://gateway.regata.local:32602" (ver
+          # Dockerfile de este servicio en el repo de codigo).
+          image: docker.io/library/frontend:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          # Sin variables de entorno: todo se hornea en el build (Vite no
+          # soporta configuracion en tiempo de ejecucion).
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 10

@@ -472,3 +472,58 @@ curl -H "Host: gateway.regata.local" http://192.168.1.12:32602/sessions/<session
 kubectl port-forward -n regatas svc/api-gateway 8094:80 --address 0.0.0.0
 curl http://192.168.1.12:8094/sessions
 ```
+
+---
+
+## `frontend` (regata-platform)
+
+Quinto componente de `regata-platform`, y el único que no es un microservicio
+backend: React + MapLibre GL (mapa, replay de la traza) + uPlot (gráfica de
+SOG/TWA sincronizada con el mapa por hover), servido como build estático por
+Nginx. Lista sesiones y muestra el detalle de una (llama solo a
+`api-gateway`, nunca a los otros tres servicios directamente). Código fuente
+en `~/Documents/projects/regata-platform/` (repo separado, privado).
+Manifiestos aquí bajo `apps/regata/frontend/`, mismo namespace `regatas`.
+
+`VITE_API_BASE_URL` se hornea en el **build** (Vite no soporta configuración
+en tiempo de ejecución): la imagen se construye ya apuntando al Ingress del
+`api-gateway` de este mismo cluster.
+
+```bash
+cd ~/Documents/projects/regata-platform/services/frontend
+docker build -t frontend:0.1.0 .
+docker save frontend:0.1.0 | sudo k3s ctr images import -
+```
+
+Sin `Secret`: no hay nada sensible, todo lo que lleva es público (la URL del
+gateway, que ya es un Ingress del propio cluster).
+
+### Dar de alta la Application (solo la primera vez)
+
+```bash
+kubectl apply -f argocd/regata-frontend-app.yaml
+```
+
+### Probar
+
+```bash
+kubectl get application regata-frontend -n argocd     # Synced / Healthy
+```
+
+**Vía Ingress** (mismo NodePort 32602, enrutado por host) — añade
+`192.168.1.12 frontend.regata.local gateway.regata.local` al `hosts` del
+portátil (el frontend llama al gateway desde el navegador, así que ambos
+hosts tienen que resolver) y abre:
+
+```
+http://frontend.regata.local:32602
+```
+
+**Alternativa sin Ingress** (port-forward, ocupa la terminal — pero entonces
+`VITE_API_BASE_URL` horneado en el build, que apunta a
+`gateway.regata.local:32602`, no lo alcanza el navegador salvo que también
+resuelva ese host; más simple probar por Ingress con ambos hosts en `hosts`):
+
+```bash
+kubectl port-forward -n regatas svc/frontend 8096:80 --address 0.0.0.0
+```

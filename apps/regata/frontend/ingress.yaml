@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend
+  namespace: regatas
+spec:
+  ingressClassName: traefik
+  rules:
+    # Enrutado por Host, igual que el resto de regata-platform: hay que pedir
+    # "frontend.regata.local" explicitamente o Traefik devuelve 404. Se entra
+    # por el NodePort 32602.
+    - host: frontend.regata.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
