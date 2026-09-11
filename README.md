@@ -558,3 +558,85 @@ resuelva ese host; más simple probar por Ingress con ambos hosts en `hosts`):
 ```bash
 kubectl port-forward -n regatas svc/frontend 8096:80 --address 0.0.0.0
 ```
+
+---
+
+## `crew-service` (regata-platform)
+
+Sexto componente de `regata-platform`, y un ejercicio hexagonal aparte del
+pipeline principal: quién iba a bordo y en qué rol, en cada sesión (ADR 0009
+de ese repo). API Spring Boot con Postgres propia; valida contra
+`session-service` que la sesión exista antes de asignar tripulación (por
+HTTP directo, no a través del `api-gateway` — ADR 0003). Código fuente en
+`~/Documents/projects/regata-platform/` (repo separado, privado). Manifiestos
+aquí bajo `apps/regata/crew-service/`, mismo namespace `regatas`.
+
+Igual que `session-service`/`api-gateway` (y a diferencia de `ingest-service`/
+`analysis-service`): proyecto Maven autocontenido, contexto de build = la
+**propia carpeta** del servicio (ADR 0007 de ese repo no aplica), y Postgres
+**dentro del cluster** (`StatefulSet` + PVC de 1Gi, `postgres.yaml` — segundo
+`StatefulSet` del cluster tras el de `session-service`, database-per-service).
+
+```bash
+cd ~/Documents/projects/regata-platform/services/crew-service
+docker build -t crew-service:0.1.0 .
+docker save crew-service:0.1.0 | sudo k3s ctr images import -
+```
+
+### El único paso que nunca va al repo: el `Secret`
+
+`configmap.yaml` lleva `POSTGRES_DB`/`SPRING_DATASOURCE_URL`/
+`SESSION_SERVICE_URL` (no sensibles). El usuario y la contraseña de Postgres
+sí lo son, y los usan **dos** manifiestos (el `StatefulSet` de Postgres y el
+`Deployment` de `crew-service`) a partir del mismo `Secret` (mismo patrón que
+`session-service`):
+
+```bash
+export KUBECONFIG=$HOME/.kube/config
+kubectl create secret generic crew-service-postgres \
+  --from-literal=POSTGRES_USER=crew \
+  --from-literal=POSTGRES_PASSWORD=<elige-una-contraseña-nueva-para-produccion> \
+  -n regatas
+```
+
+Si el namespace `regatas` aún no existe, créalo antes o espera a que Argo lo
+cree (`CreateNamespace=true`) y repite el `kubectl create secret`.
+
+⚠️ Usa una contraseña **distinta** de la de `.env`/`docker-compose.yml` de
+`regata-platform` (esa es solo para dev local) — esta es la de producción, en
+el cluster real.
+
+### Dar de alta la Application (solo la primera vez)
+
+```bash
+kubectl apply -f argocd/regata-crew-service-app.yaml
+```
+
+### Probar
+
+```bash
+kubectl get application regata-crew-service -n argocd     # Synced / Healthy
+kubectl get pods -n regatas                                # crew-service-postgres-0 y crew-service
+```
+
+⚠️ En el primer despliegue es normal ver `crew-service` reiniciar una o dos
+veces (`CrashLoopBackOff` breve) mientras `crew-service-postgres-0` termina de
+arrancar — mismo comportamiento que `session-service`, se estabiliza solo.
+
+**Vía Ingress** (mismo NodePort 32602, enrutado por host) — necesita un
+`session_id` ya existente en `session-service`:
+
+```bash
+curl -H "Host: crew.regata.local" http://192.168.1.12:32602/health
+curl -X POST -H "Host: crew.regata.local" -H "Content-Type: application/json" \
+  http://192.168.1.12:32602/sessions/<session_id>/crew \
+  -d '{"sailorName":"Ana","role":"HELM"}'
+curl -H "Host: crew.regata.local" http://192.168.1.12:32602/sessions/<session_id>/crew
+```
+
+**Alternativa sin Ingress** (port-forward, ocupa la terminal):
+
+```bash
+kubectl port-forward -n regatas svc/crew-service 8097:80 --address 0.0.0.0
+curl http://192.168.1.12:8097/health
+```
