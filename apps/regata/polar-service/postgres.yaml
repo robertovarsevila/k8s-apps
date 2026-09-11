@@ -1,0 +1,103 @@
+# Postgres PROPIA de polar-service, desplegada en el propio cluster con PVC
+# (database-per-service, ADR 0010 de regata-platform) -- mismo patrón que
+# session-service/crew-service, tercer StatefulSet/PVC del cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: polar-service-postgres
+  namespace: regatas
+  labels:
+    app: polar-service-postgres
+spec:
+  # Headless: un StatefulSet necesita un Service sin ClusterIP propio para dar
+  # identidad de red estable a sus pods (aquí solo hay 1 réplica, pero es el
+  # patrón correcto igualmente).
+  clusterIP: None
+  selector:
+    app: polar-service-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: polar-service-postgres
+  namespace: regatas
+  labels:
+    app: polar-service-postgres
+spec:
+  serviceName: polar-service-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: polar-service-postgres
+  template:
+    metadata:
+      labels:
+        app: polar-service-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17
+          ports:
+            - name: postgres
+              containerPort: 5432
+              protocol: TCP
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: polar-service-config
+                  key: POSTGRES_DB
+            # Usuario/contraseña SÍ son sensibles: el Secret se crea a mano,
+            # nunca como YAML en este repo público (ver README.md, ADR 0005 de
+            # regata-platform). El mismo Secret lo reutiliza el Deployment de
+            # polar-service más abajo (deployment.yaml) para sus credenciales.
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: polar-service-postgres
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: polar-service-postgres
+                  key: POSTGRES_PASSWORD
+            # Subdirectorio, no la raíz del volumen: algunos provisioners
+            # (o un remount) dejan cosas como lost+found en la raíz del
+            # punto de montaje y la imagen de postgres se niega a arrancar
+            # si no la ve completamente vacía.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              cpu: 20m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)"]
+            initialDelaySeconds: 15
+            periodSeconds: 20
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        # local-path-provisioner (el que trae k3s de serie), sin storageClassName
+        # explícito -- usa el que sea default del cluster.
+        resources:
+          requests:
+            storage: 1Gi

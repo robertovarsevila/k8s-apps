@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: polar-service-config
+  namespace: regatas
+data:
+  # No sensible: nombre de la base, no las credenciales.
+  POSTGRES_DB: "polar"
+  # DNS interno del cluster: <servicio>.<namespace>.svc.cluster.local se
+  # resuelve como "polar-service-postgres" a secas dentro del mismo namespace
+  # (regatas). Nada que ver con la Postgres de docker-compose del host, que es
+  # solo para dev local (variables POLAR_ prefijadas, ver ADR 0010).
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://polar-service-postgres:5432/polar"
+  # session-service SÍ está en el cluster (mismo namespace regatas): se llega
+  # por el Service interno, no por la IP de la Pi (ADR 0003/0010).
+  SESSION_SERVICE_URL: "http://session-service.regatas.svc.cluster.local"

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: polar-service
+  namespace: regatas
+  labels:
+    app: polar-service
+spec:
+  type: ClusterIP
+  selector:
+    app: polar-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

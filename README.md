@@ -640,3 +640,88 @@ curl -H "Host: crew.regata.local" http://192.168.1.12:32602/sessions/<session_id
 kubectl port-forward -n regatas svc/crew-service 8097:80 --address 0.0.0.0
 curl http://192.168.1.12:8097/health
 ```
+
+---
+
+## `polar-service` (regata-platform)
+
+Séptimo componente de `regata-platform`: velocidad objetivo del barco por
+TWA/TWS, interpolada bilinealmente (ADR 0010 — revierte el plan original de
+`ARCHITECTURE.md`, que las metía en `analysis-service`). API Spring Boot con
+Postgres propia; valida contra `session-service` que el barco exista antes de
+cargar su tabla (por HTTP directo, no a través del `api-gateway` — ADR 0003).
+Código fuente en `~/Documents/projects/regata-platform/` (repo separado,
+privado). Manifiestos aquí bajo `apps/regata/polar-service/`, mismo namespace
+`regatas`.
+
+Igual que `session-service`/`crew-service`/`api-gateway` (y a diferencia de
+`ingest-service`/`analysis-service`): proyecto Maven autocontenido, contexto
+de build = la **propia carpeta** del servicio (ADR 0007 de ese repo no
+aplica), y Postgres **dentro del cluster** (`StatefulSet` + PVC de 1Gi,
+`postgres.yaml` — tercer `StatefulSet` del cluster, database-per-service).
+
+```bash
+cd ~/Documents/projects/regata-platform/services/polar-service
+docker build -t polar-service:0.1.0 .
+docker save polar-service:0.1.0 | sudo k3s ctr images import -
+```
+
+### El único paso que nunca va al repo: el `Secret`
+
+`configmap.yaml` lleva `POSTGRES_DB`/`SPRING_DATASOURCE_URL`/
+`SESSION_SERVICE_URL` (no sensibles). El usuario y la contraseña de Postgres
+sí lo son, y los usan **dos** manifiestos (el `StatefulSet` de Postgres y el
+`Deployment` de `polar-service`) a partir del mismo `Secret` (mismo patrón que
+`session-service`/`crew-service`):
+
+```bash
+export KUBECONFIG=$HOME/.kube/config
+kubectl create secret generic polar-service-postgres \
+  --from-literal=POSTGRES_USER=polar \
+  --from-literal=POSTGRES_PASSWORD=<elige-una-contraseña-nueva-para-produccion> \
+  -n regatas
+```
+
+Si el namespace `regatas` aún no existe, créalo antes o espera a que Argo lo
+cree (`CreateNamespace=true`) y repite el `kubectl create secret`.
+
+⚠️ Usa una contraseña **distinta** de la de `.env`/`docker-compose.yml` de
+`regata-platform` (esa es solo para dev local) — esta es la de producción, en
+el cluster real.
+
+### Dar de alta la Application (solo la primera vez)
+
+```bash
+kubectl apply -f argocd/regata-polar-service-app.yaml
+```
+
+### Probar
+
+```bash
+kubectl get application regata-polar-service -n argocd     # Synced / Healthy
+kubectl get pods -n regatas                                 # polar-service-postgres-0 y polar-service
+```
+
+⚠️ En el primer despliegue es normal ver `polar-service` reiniciar una o dos
+veces (`CrashLoopBackOff` breve) mientras `polar-service-postgres-0` termina
+de arrancar — mismo comportamiento que `session-service`/`crew-service`, se
+estabiliza solo.
+
+**Vía Ingress** (mismo NodePort 32602, enrutado por host) — necesita un
+`boat_id` ya existente en `session-service`:
+
+```bash
+curl -H "Host: polar.regata.local" http://192.168.1.12:32602/health
+curl -X PUT -H "Host: polar.regata.local" -H "Content-Type: application/json" \
+  http://192.168.1.12:32602/boats/<boat_id>/polar-table \
+  -d '[{"tws":10,"twa":45,"targetSpeed":5.0},{"tws":10,"twa":90,"targetSpeed":6.0}]'
+curl -H "Host: polar.regata.local" \
+  "http://192.168.1.12:32602/boats/<boat_id>/target-speed?tws=10&twa=67.5"
+```
+
+**Alternativa sin Ingress** (port-forward, ocupa la terminal):
+
+```bash
+kubectl port-forward -n regatas svc/polar-service 8098:80 --address 0.0.0.0
+curl http://192.168.1.12:8098/health
+```
