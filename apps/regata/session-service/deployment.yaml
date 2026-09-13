@@ -21,7 +21,7 @@ spec:
           # k3s ctr images import), no hay registry todavía. Contexto de
           # build = esta misma carpeta del servicio, no la raíz del monorepo
           # (a diferencia de ingest-service, ver Dockerfile de este servicio).
-          image: docker.io/library/session-service:0.1.0
+          image: ghcr.io/robertovarsevila/session-service:sha-202693b
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
