@@ -26,7 +26,7 @@ spec:
           # k3s ctr images import), no hay registry todavia. Contexto de
           # build = esta misma carpeta del repo de codigo (Maven
           # autocontenido, igual que session-service, ADR 0007 no aplica).
-          image: docker.io/library/api-gateway:0.1.0
+          image: ghcr.io/robertovarsevila/api-gateway:sha-cdb645f
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
