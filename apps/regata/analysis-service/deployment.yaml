@@ -22,9 +22,10 @@ spec:
         - name: ghcr-pull
       containers:
         - name: analysis-service
-          # Imagen construida e importada a mano en esta Pi (docker build +
-          # k3s ctr images import), no hay registry todavia. Contexto de build
-          # = raiz del monorepo regata-platform (ver ADR 0007 de ese repo).
+          # Imagen en GHCR. El tag lo reescribe el CI de regata-platform
+          # (workflow analysis-service.yml) en cada push a main. Contexto de
+          # build = raiz del monorepo regata-platform (paquetes hermanos,
+          # ver ADR 0007 de ese repo).
           image: ghcr.io/robertovarsevila/analysis-service:sha-cdb645f
           imagePullPolicy: IfNotPresent
           ports:

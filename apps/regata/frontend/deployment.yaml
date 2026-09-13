@@ -22,8 +22,8 @@ spec:
         - name: ghcr-pull
       containers:
         - name: frontend
-          # Imagen construida e importada a mano en esta Pi (docker build +
-          # k3s ctr images import), no hay registry todavia. Build estatico
+          # Imagen en GHCR. El tag lo reescribe el CI de regata-platform
+          # (workflow frontend.yml) en cada push a main. Build estatico
           # (React + Vite) servido por Nginx; VITE_API_BASE_URL se hornea en
           # el build apuntando a "http://gateway.regata.local:32602" (ver
           # Dockerfile de este servicio en el repo de codigo).
