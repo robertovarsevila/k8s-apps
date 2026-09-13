@@ -49,6 +49,14 @@ spec:
                 secretKeyRef:
                   name: session-service-postgres
                   key: POSTGRES_PASSWORD
+            # Secreto compartido para VERIFICAR los JWT (ADR 0013, Fase B): el
+            # MISMO Secret 'auth-jwt' que usa auth-service para firmarlos. De
+            # momento en modo permisivo (session-service no exige token todavía).
+            - name: AUTH_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: auth-jwt
+                  key: AUTH_JWT_SECRET
           # Una JVM necesita bastante más que el binario Go de podinfo (igual
           # que metrics-api).
           resources:
