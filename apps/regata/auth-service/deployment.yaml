@@ -27,7 +27,7 @@ spec:
           # build = esta misma carpeta del servicio (Maven autocontenido,
           # ADR 0007 no aplica; ver Dockerfile). El valor 'bootstrap' es solo
           # el placeholder inicial hasta el primer build del CI.
-          image: ghcr.io/robertovarsevila/auth-service:bootstrap
+          image: ghcr.io/robertovarsevila/auth-service:sha-ccb2d0c
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
