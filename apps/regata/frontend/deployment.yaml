@@ -27,7 +27,7 @@ spec:
           # (React + Vite) servido por Nginx; VITE_API_BASE_URL se hornea en
           # el build apuntando a "http://gateway.regata.local:32602" (ver
           # Dockerfile de este servicio en el repo de codigo).
-          image: docker.io/library/frontend:0.1.0
+          image: ghcr.io/robertovarsevila/frontend:sha-cdb645f
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
