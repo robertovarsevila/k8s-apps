@@ -15,6 +15,11 @@ spec:
       labels:
         app: crew-service
     spec:
+      # GHCR es privado: el kubelet necesita el imagePullSecret 'ghcr-pull'
+      # (creado a mano en el namespace 'regatas', ver deploy/GITOPS.md en
+      # regata-platform). El CI reescribe la imagen a ghcr.io/... en cada push.
+      imagePullSecrets:
+        - name: ghcr-pull
       containers:
         - name: crew-service
           # Imagen construida e importada a mano en esta Pi (docker build +
