@@ -25,7 +25,7 @@ spec:
           # Imagen construida e importada a mano en esta Pi (docker build +
           # k3s ctr images import), no hay registry todavia. Contexto de build
           # = raiz del monorepo regata-platform (ver ADR 0007 de ese repo).
-          image: docker.io/library/analysis-service:0.1.0
+          image: ghcr.io/robertovarsevila/analysis-service:sha-cdb645f
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
