@@ -15,12 +15,17 @@ spec:
       labels:
         app: session-service
     spec:
+      # GHCR es privado: el kubelet necesita credenciales para el pull.
+      # Secret docker-registry 'ghcr-pull' creado a mano una vez en el
+      # namespace 'regatas' (ver deploy/GITOPS.md en regata-platform).
+      imagePullSecrets:
+        - name: ghcr-pull
       containers:
         - name: session-service
-          # Imagen construida e importada a mano en esta Pi (docker build +
-          # k3s ctr images import), no hay registry todavía. Contexto de
-          # build = esta misma carpeta del servicio, no la raíz del monorepo
-          # (a diferencia de ingest-service, ver Dockerfile de este servicio).
+          # Imagen en GHCR. El tag lo reescribe el CI (workflow
+          # session-service.yml de regata-platform) en cada push a main
+          # (writeback), con el sha corto del commit. Contexto de build =
+          # esta carpeta del servicio (Maven autocontenido).
           image: ghcr.io/robertovarsevila/session-service:sha-202693b
           imagePullPolicy: IfNotPresent
           ports:
