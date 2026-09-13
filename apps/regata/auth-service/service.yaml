@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: regatas
+  labels:
+    app: auth-service
+spec:
+  type: ClusterIP
+  selector:
+    app: auth-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

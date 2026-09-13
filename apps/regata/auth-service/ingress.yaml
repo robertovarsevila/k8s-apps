@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: auth-service
+  namespace: regatas
+spec:
+  ingressClassName: traefik
+  rules:
+    # Enrutado por Host, igual que el resto de servicios de regata-platform:
+    # hay que pedir "auth.regata.local" explícitamente o Traefik devuelve 404.
+    # Se entra por el NodePort 32602.
+    - host: auth.regata.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 80

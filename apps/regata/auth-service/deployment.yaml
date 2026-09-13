@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: regatas
+  labels:
+    app: auth-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      # GHCR es privado: el kubelet necesita el imagePullSecret 'ghcr-pull'
+      # (creado a mano en el namespace 'regatas', ver deploy/GITOPS.md en
+      # regata-platform). El CI reescribe la imagen a ghcr.io/... en cada push.
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: auth-service
+          # Imagen en GHCR. El tag lo reescribe el CI de regata-platform
+          # (workflow auth-service.yml) en cada push a main. Contexto de
+          # build = esta misma carpeta del servicio (Maven autocontenido,
+          # ADR 0007 no aplica; ver Dockerfile). El valor 'bootstrap' es solo
+          # el placeholder inicial hasta el primer build del CI.
+          image: ghcr.io/robertovarsevila/auth-service:bootstrap
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8092
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: auth-service-config
+          env:
+            # Credenciales de Postgres: mismo Secret que usa la propia base
+            # (postgres.yaml), creado a mano una vez (ADR 0005).
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: auth-service-postgres
+                  key: POSTGRES_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-service-postgres
+                  key: POSTGRES_PASSWORD
+            # Secreto HS256 para firmar los JWT (ADR 0013). Secret propio,
+            # creado a mano (nunca en este repo público). En el futuro, cuando
+            # el resto de servicios verifiquen tokens, compartirán este mismo
+            # valor.
+            - name: AUTH_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: auth-jwt
+                  key: AUTH_JWT_SECRET
+          # Una JVM necesita bastante más que el binario Go de podinfo (igual
+          # que session-service/crew-service).
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          # initialDelaySeconds alto: la JVM + Flyway + Hibernate tardan en
+          # arrancar en frío en la Pi.
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10

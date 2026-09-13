@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-service-config
+  namespace: regatas
+data:
+  # No sensible: nombre de la base, no las credenciales.
+  POSTGRES_DB: "auth"
+  # DNS interno del cluster: "auth-service-postgres" a secas se resuelve dentro
+  # del mismo namespace (regatas). Nada que ver con la Postgres de
+  # docker-compose del host, que es solo para dev local (variables AUTH_
+  # prefijadas, puerto 5435, ver ADR 0013).
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://auth-service-postgres:5432/auth"
+  # auth-service no llama a ningún otro servicio: solo emite tokens. No hay
+  # SESSION_SERVICE_URL ni catálogos HTTP (a diferencia de crew/polar).
