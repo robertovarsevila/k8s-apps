@@ -26,7 +26,7 @@ spec:
           # k3s ctr images import), no hay registry todavía. Contexto de
           # build = esta misma carpeta del servicio, no la raíz del monorepo
           # (mismo patrón que session-service/crew-service, ver Dockerfile).
-          image: docker.io/library/polar-service:0.1.0
+          image: ghcr.io/robertovarsevila/polar-service:sha-cdb645f
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
