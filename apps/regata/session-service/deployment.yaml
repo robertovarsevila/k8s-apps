@@ -26,7 +26,7 @@ spec:
           # session-service.yml de regata-platform) en cada push a main
           # (writeback), con el sha corto del commit. Contexto de build =
           # esta carpeta del servicio (Maven autocontenido).
-          image: ghcr.io/robertovarsevila/session-service:sha-202693b
+          image: ghcr.io/robertovarsevila/session-service:sha-cdb645f
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
